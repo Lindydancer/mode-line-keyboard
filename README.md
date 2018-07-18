@@ -1,7 +1,7 @@
 # mode-line-keyboard - Use the mode line as keyboard (for touch screens)
 
 *Author:* Anders Lindgren<br>
-*Version:* 0.0.0<br>
+*Version:* 0.0.1<br>
 *URL:* [https://github.com/Lindydancer/mode-line-keyboard](https://github.com/Lindydancer/mode-line-keyboard)<br>
 
 This package turns the header and mode lines into a keyboard.  This

@@ -4,7 +4,7 @@
 
 ;; Author: Anders Lindgren
 ;; Keywords: convenience
-;; Version: 0.0.0
+;; Version: 0.0.1
 ;; Created: 2017-12-01
 ;; Package-Requires: ((emacs "26.0"))
 ;; URL: https://github.com/Lindydancer/mode-line-keyboard
@@ -232,21 +232,29 @@
 ;;
 ;; Ponder if there is a more natural way to layout the keys.
 ;;
-;; Make alternative, non utf-8, arrows. (Is it possible to check if a
-;; display support utf-8. Is is possible to render different things in
+;; Make alternative, ASCII, arrows. (Is it possible to check if a
+;; display support utf-8. Is it possible to render different things in
 ;; different frames?)
 ;;
 ;; Make it optional what should happen when clicking in the echo area
-;; (currently, a space is inserted).
+;; (currently, a space is unconditionally inserted).
 ;;
-;; Make it optional how normal clicks should behave: No
-;; change. Require an extra click (which is currently hardwired), or
-;; disable point movement all together.
+;; Make it optional how normal clicks should behave: No change,
+;; require an extra click (which is currently hardwired), or disable
+;; point movement all together.
 ;;
 ;; Make the modifier implementation less repetitious.
 ;;
-;; Make the -template-list and -content variables customizable.
-
+;; Make the warning message about double clicking optional.
+;;
+;; Eat single clicks in other contexts as well, like after C-s, when
+;; the idea is to continue typing.  Maybe even eat all single clicks
+;; when the keyboard is visible?  (This is, however, is technically
+;; difficult.)
+;;
+;; Add "initial state". (Currently, all new buffers start in "KB>",
+;; when running under Termux, it would be more ergonomical if they
+;; started on the first line.)
 
 ;; ------------------------------------------------------------
 
@@ -314,16 +322,47 @@ return value."
     (apply func args)))
 
 
-(defun mode-line-keyboard-read-key-ignore-mouse-movement (&optional prompt)
+(defun mode-line-keyboard-read-key-ignore-mouse-movement
+    (&optional prompt ignore-clicks)
   "Like `mode-line-keyboard-read-key' but ignore `mouse-movement' events.
 
-PROMPT is passed to to `read-key'."
+PROMPT is passed to to `read-key'.
+
+When IGNORE-CLICKS is non-nil, mouse events outside the header
+and mode lines are ignored."
   (force-mode-line-update)
   (let (key)
     (while (progn
              (setq key (mode-line-keyboard-read-key prompt))
-             (eq (event-basic-type key) 'mouse-movement)))
+             (or (eq (event-basic-type key) 'mouse-movement)
+                 ;; Ignore clicks in buffer.  After the user has
+                 ;; clicked on a modifier, it's very easy to
+                 ;; accidentally click inside the buffer instead of on
+                 ;; the mode or header line, so they are ignored.
+                 (and ignore-clicks
+                      (or mode-line-keyboard-add-alt
+                          mode-line-keyboard-add-control
+                          mode-line-keyboard-add-super
+                          mode-line-keyboard-add-hyper
+                          mode-line-keyboard-add-shift
+                          mode-line-keyboard-add-meta)
+                      (eq (event-basic-type key) 'mouse-1)
+                      (let ((position (nth 1 key)))
+                        (not (memq (posn-area position)
+                                   '(mode-line header-line)))))))
+      (mode-line-keyboard-log "Ignoring: %S" key))
     key))
+
+
+(defun mode-line-keyboard-read-key-maybe-ignore-click (&optional prompt)
+  "Like `read-key', but maybe ignore mouse clicks outside the mode line.
+
+PROMPT is passed to `read-key'.
+
+The clicks are ignored when at least one Mode Line Keyboard
+modifiers is active."
+  (mode-line-keyboard-read-key-ignore-mouse-movement
+   prompt t))
 
 
 ;; ------------------------------------------------------------
@@ -589,12 +628,12 @@ PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-alt
       (let ((mode-line-keyboard-top-level-alt nil)
             (mode-line-keyboard-add-alt t))
-        (let ((key (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
+        (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
           (vector (if mode-line-keyboard-add-alt
                       (mode-line-keyboard-apply-modifier key 'alt)
                     key))))
     (setq mode-line-keyboard-add-alt (not mode-line-keyboard-add-alt))
-    (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt))))
+    (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
 ;; ----------------------------------------
@@ -622,12 +661,12 @@ PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-control
       (let ((mode-line-keyboard-top-level-control nil)
             (mode-line-keyboard-add-control t))
-        (let ((key (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
+        (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
           (vector (if mode-line-keyboard-add-control
                       (mode-line-keyboard-apply-modifier key 'control)
                     key))))
     (setq mode-line-keyboard-add-control (not mode-line-keyboard-add-control))
-    (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt))))
+    (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
 ;; ----------------------------------------
@@ -655,12 +694,12 @@ PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-super
       (let ((mode-line-keyboard-top-level-super nil)
             (mode-line-keyboard-add-super t))
-        (let ((key (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
+        (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
           (vector (if mode-line-keyboard-add-super
                       (mode-line-keyboard-apply-modifier key 'super)
                     key))))
     (setq mode-line-keyboard-add-super (not mode-line-keyboard-add-super))
-    (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt))))
+    (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
 ;; ----------------------------------------
@@ -688,12 +727,12 @@ PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-hyper
       (let ((mode-line-keyboard-top-level-hyper nil)
             (mode-line-keyboard-add-hyper t))
-        (let ((key (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
+        (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
           (vector (if mode-line-keyboard-add-hyper
                       (mode-line-keyboard-apply-modifier key 'hyper)
                     key))))
     (setq mode-line-keyboard-add-hyper (not mode-line-keyboard-add-hyper))
-    (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt))))
+    (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
 ;; ----------------------------------------
@@ -721,12 +760,12 @@ PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-shift
       (let ((mode-line-keyboard-top-level-shift nil)
             (mode-line-keyboard-add-shift t))
-        (let ((key (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
+        (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
           (vector (if mode-line-keyboard-add-shift
                       (mode-line-keyboard-apply-modifier key 'shift)
                     key))))
     (setq mode-line-keyboard-add-shift (not mode-line-keyboard-add-shift))
-    (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt))))
+    (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
 ;; ----------------------------------------
@@ -754,12 +793,12 @@ PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-meta
       (let ((mode-line-keyboard-top-level-meta nil)
             (mode-line-keyboard-add-meta t))
-        (let ((key (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
+        (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
           (vector (if mode-line-keyboard-add-meta
                       (mode-line-keyboard-apply-modifier key 'meta)
                     key))))
     (setq mode-line-keyboard-add-meta (not mode-line-keyboard-add-meta))
-    (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt))))
+    (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
 ;; ------------------------------------------------------------
@@ -814,7 +853,7 @@ EVENT is an event.  If EVENT is nil, `last-input-event' is used."
 ;; Constructing the mode and header lines.
 ;;
 
-(defvar mode-line-keyboard-template-list
+(defcustom mode-line-keyboard-template-list
   '((:escape   (27 "ESC"))
     (:space    (32 "SPC"))
     (:tab      (9  "TAB"))
@@ -864,21 +903,39 @@ Each entry in the list is on the form:
 
 Where ID is a keyword like `:tab'.  When it occurs in
 `mode-line-keyboard-header-line-content' or
-`mode-line-keyboard-mode-line-content' it is replaced by the REPLACEMENT:s.")
+`mode-line-keyboard-mode-line-content' it is replaced by the REPLACEMENT:s."
+  :group 'mode-line-keyboard
+  :type 'sexp)
 
 
-(defvar mode-line-keyboard-header-line-content
+(defcustom mode-line-keyboard-header-line-content
   '((:hl-cmn :digits)
     (:hl-cmn :parens :quotes)
     (:hl-cmn :ariths)
     (:hl-cmn :punct))
-  "A list of entries, each representing a keyboard line in the header line.")
+  "A list of entries, each representing a keyboard line in the header line.
+
+See `mode-line-keyboard-mode-line-content' for details."
+  :group 'mode-line-keyboard
+  :type 'sexp)
 
 
-(defvar mode-line-keyboard-mode-line-content
+(defcustom mode-line-keyboard-mode-line-content
   '((:ml     :letters)
     (:soh-ml :arrows :escape :home :end :pgup :pgdn))
-  "A list of entries, each representing a keyboard line in the mode line.")
+  "A list of entries, each representing a keyboard line in the mode line.
+
+Each entry is a list, which can contain the following:
+
+  INTEGER                  -- A character
+  (:range INTEGER INTEGER) -- A range of characters
+  (INTEGER LABEL)          -- A character, but display \"LABEL\".
+  (:shift INTEGER INTEGER) -- A character and its shifted counterpart.
+  (:toggle VAR FUNC LABEL) -- A modifier (like `control').
+  (FUNC LABEL)             -- Call FUNC when \"LABEL\" is clicked.
+  :KEYWORD                 -- Looked up in `mode-line-keyboard-template-list'."
+  :group 'mode-line-keyboard
+  :type 'sexp)
 
 
 (defun mode-line-keyboard-flatten-template (template)
@@ -1040,10 +1097,14 @@ upper case, the result is on the form
 
 PROMPT is the prompt of the original key event, it is passed to
 the next call to `read-key'."
-  (setq mode-line-keyboard-mode-line-step
-        (mod (+ mode-line-keyboard-mode-line-step 1)
-             (length mode-line-keyboard-mode-line-content)))
-  (mode-line-keyboard-update-mode-line)
+  (let* ((position (nth 1 event))
+         (win (posn-window position)))
+    (with-current-buffer (window-buffer win)
+      (setq mode-line-keyboard-mode-line-step
+            (mod (+ mode-line-keyboard-mode-line-step 1)
+                 (length mode-line-keyboard-mode-line-content)))
+      (mode-line-keyboard-update-mode-line)))
+  ;; TODO: Retain IGNORE-CLICKS from the parent. (How?)
   (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
 
 
@@ -1052,10 +1113,14 @@ the next call to `read-key'."
 
 PROMPT is the prompt of the original key event, it is passed to
 the next call to `read-key'."
-  (setq mode-line-keyboard-header-line-step
-        (mod (+ mode-line-keyboard-header-line-step 1)
-             (length mode-line-keyboard-header-line-content)))
-  (mode-line-keyboard-update-header-line)
+  (let* ((position (nth 1 event))
+         (win (posn-window position)))
+    (with-current-buffer (window-buffer win)
+      (setq mode-line-keyboard-header-line-step
+            (mod (+ mode-line-keyboard-header-line-step 1)
+                 (length mode-line-keyboard-header-line-content)))
+      (mode-line-keyboard-update-header-line)))
+  ;; TODO: Retain IGNORE-CLICKS from the parent. (How?)
   (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
 
 
