@@ -1,7 +1,7 @@
-# mode-line-keyboard - Use the mode line as keyboard (for touch screens)
+# mode-line-keyboard - Keyboard in mode line for touch screens
 
 *Author:* Anders Lindgren<br>
-*Version:* 0.0.1<br>
+*Version:* 0.0.2<br>
 *URL:* [https://github.com/Lindydancer/mode-line-keyboard](https://github.com/Lindydancer/mode-line-keyboard)<br>
 
 This package turns the header and mode lines into a keyboard.  This
@@ -43,9 +43,8 @@ To type on the keyboard, simply click on the characters, modifiers,
 and special keys.
 
 The `1/4` indicates that this is one of four lines -- clicking on
-it display the next line.  In the mode line, clicking on the last
-line hides the Mode Line Keyboard -- you can click on the `KB>` to
-display it again.
+it display the next line.  To hide the keyboard click on `<KB`
+which (by default) is on the last mode line.
 
 Clicking in the echo area inserts a space (unless the minibuffer is
 active).

@@ -1,4 +1,4 @@
-;;; mode-line-keyboard-test.el --- Tests for mode-line-keyboard.el
+;;; mode-line-keyboard-test.el --- Tests for `mode-line-keyboard'.  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018  Anders Lindgren
 
@@ -95,9 +95,9 @@
   ;; should return that? If so, does that apply to non-latin-1
   ;; characters as well?
   (should (eq (mode-line-keyboard-apply-modifier ?ä 'control)
-              (logior ?ä (lsh 1 26))))
+              (logior ?ä (ash 1 26))))
   (should (eq (mode-line-keyboard-apply-modifier ?Ä 'control)
-              (logior ?Ä (lsh 1 26))))
+              (logior ?Ä (ash 1 26))))
   ;; Meta (Super, Hyper, and Alt work the same way).
   (should (eq (mode-line-keyboard-apply-modifier ?a 'meta) ?\M-a))
   (should (eq (mode-line-keyboard-apply-modifier ?A 'meta) ?\M-A))

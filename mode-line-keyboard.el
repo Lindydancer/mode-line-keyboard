@@ -1,10 +1,10 @@
-;;; mode-line-keyboard.el --- Use the mode line as keyboard (for touch screens)
+;;; mode-line-keyboard.el --- Keyboard in mode line for touch screens -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2017-2018  Anders Lindgren
+;; Copyright (C) 2017-2018,2025  Anders Lindgren
 
 ;; Author: Anders Lindgren
 ;; Keywords: convenience
-;; Version: 0.0.1
+;; Version: 0.0.2
 ;; Created: 2017-12-01
 ;; Package-Requires: ((emacs "26.0"))
 ;; URL: https://github.com/Lindydancer/mode-line-keyboard
@@ -63,9 +63,8 @@
 ;; and special keys.
 ;;
 ;; The `1/4' indicates that this is one of four lines -- clicking on
-;; it display the next line.  In the mode line, clicking on the last
-;; line hides the Mode Line Keyboard -- you can click on the `KB>' to
-;; display it again.
+;; it display the next line.  To hide the keyboard click on `<KB'
+;; which (by default) is on the last mode line.
 ;;
 ;; Clicking in the echo area inserts a space (unless the minibuffer is
 ;; active).
@@ -285,6 +284,61 @@ using `read-key' from within remapping functions.")
 (defvar mode-line-keyboard-visible-mode)
 
 
+;; ----------------------------------------
+;; Modifer control variables
+;;
+;; The variables are let-bound by the top-level call to
+;; `mode-line-keyboard-apply-XXX-modifier'.  Nestled calls toggle the
+;; variable.  Only the top-level function applies the modifier to the
+;; key.
+;;
+;; In addition, the variable is used to control highlighting labels
+;; like ALT and CTRL in the mode-line.
+
+(defvar mode-line-keyboard--add-alt nil
+  "When Non-nil, `mode-line-keyboard-apply-alt-modifier' adds modifier.
+
+This is used to make the function behave like a toggle.")
+
+
+(defvar mode-line-keyboard--add-control nil
+  "When Non-nil, `mode-line-keyboard-apply-control-modifier' adds modifier.
+
+This is used to make the function behave like a toggle.")
+
+
+(defvar mode-line-keyboard--add-super nil
+  "When Non-nil, `mode-line-keyboard-apply-super-modifier' adds modifier.
+
+This is used to make the function behave like a toggle.")
+
+
+(defvar mode-line-keyboard--add-super nil
+  "When Non-nil, `mode-line-keyboard-apply-super-modifier' adds modifier.
+
+This is used to make the function behave like a toggle.")
+
+
+(defvar mode-line-keyboard--add-hyper nil
+  "When Non-nil, `mode-line-keyboard-apply-hyper-modifier' adds modifier.
+
+This is used to make the function behave like a toggle.")
+
+
+(defvar mode-line-keyboard--add-shift nil
+  "When Non-nil, `mode-line-keyboard-apply-shift-modifier' adds modifier.
+
+This is used to make the function behave like a toggle.")
+
+
+(defvar mode-line-keyboard--add-meta nil
+  "When Non-nil, `mode-line-keyboard-apply-meta-modifier' adds modifier.
+
+This is used to make the function behave like a toggle.")
+
+
+
+
 ;; ------------------------------------------------------------
 ;; Log support.
 ;;
@@ -340,12 +394,12 @@ and mode lines are ignored."
                  ;; accidentally click inside the buffer instead of on
                  ;; the mode or header line, so they are ignored.
                  (and ignore-clicks
-                      (or mode-line-keyboard-add-alt
-                          mode-line-keyboard-add-control
-                          mode-line-keyboard-add-super
-                          mode-line-keyboard-add-hyper
-                          mode-line-keyboard-add-shift
-                          mode-line-keyboard-add-meta)
+                      (or mode-line-keyboard--add-alt
+                          mode-line-keyboard--add-control
+                          mode-line-keyboard--add-super
+                          mode-line-keyboard--add-hyper
+                          mode-line-keyboard--add-shift
+                          mode-line-keyboard--add-meta)
                       (eq (event-basic-type key) 'mouse-1)
                       (let ((position (nth 1 key)))
                         (not (memq (posn-area position)
@@ -552,9 +606,9 @@ LSHIFTBY is the numeric value of this modifier, in keyboard events.
 PREFIX is the string that represents this modifier in an event type symbol."
   (if (numberp event)
       (let ((base-event (logand event
-                                (- (lsh 1 22) 1)))
+                                (- (ash 1 22) 1)))
             (base-modifiers (logand event
-                                    (lognot (- (lsh 1 22) 1)))))
+                                    (lognot (- (ash 1 22) 1)))))
         (cond ((eq symbol 'control)
 	       (cond ((and (<= (downcase base-event) ?z)
 		           (>= (downcase base-event) ?a))
@@ -565,14 +619,14 @@ PREFIX is the string that represents this modifier in an event type symbol."
                       (logior (- (downcase event) ?A -1)
                               base-modifiers))
                      (t
-		      (logior (lsh 1 lshiftby) event))))
+		      (logior (ash 1 lshiftby) event))))
 	      ((eq symbol 'shift)
                (if (eq (upcase base-event)
                        (downcase base-event))
-                   (logior (lsh 1 lshiftby) event)
+                   (logior (ash 1 lshiftby) event)
                  (logior base-modifiers (upcase event))))
 	      (t
-	       (logior (lsh 1 lshiftby) event))))
+	       (logior (ash 1 lshiftby) event))))
     (if (memq symbol (event-modifiers event))
 	event
       (let ((event-type (if (symbolp event) event (car event))))
@@ -613,12 +667,6 @@ This is bound to nil inside the the first call to the function,
 to change thebehaviour of recursive invocations.")
 
 
-(defvar mode-line-keyboard-add-alt nil
-  "When Non-nil `mode-line-keyboard-apply-alt-modifier' add modifier.
-
-This is used to make the function behave like a toggle.")
-
-
 (defun mode-line-keyboard-apply-alt-modifier (prompt)
   "Add the alt modifier to the following event.
 
@@ -627,12 +675,12 @@ Act as a toggle, i.e. the effect is undone if applied a second time.
 PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-alt
       (let ((mode-line-keyboard-top-level-alt nil)
-            (mode-line-keyboard-add-alt t))
+            (mode-line-keyboard--add-alt t))
         (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
-          (vector (if mode-line-keyboard-add-alt
+          (vector (if mode-line-keyboard--add-alt
                       (mode-line-keyboard-apply-modifier key 'alt)
                     key))))
-    (setq mode-line-keyboard-add-alt (not mode-line-keyboard-add-alt))
+    (setq mode-line-keyboard--add-alt (not mode-line-keyboard--add-alt))
     (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
@@ -646,12 +694,6 @@ This is bound to nil inside the the first call to the function,
 to change the behaviour of recursive invocations.")
 
 
-(defvar mode-line-keyboard-add-control nil
-  "When Non-nil `mode-line-keyboard-apply-control-modifier' add modifier.
-
-This is used to make the function behave like a toggle.")
-
-
 (defun mode-line-keyboard-apply-control-modifier (prompt)
   "Add the control modifier to the following event.
 
@@ -660,12 +702,12 @@ Act as a toggle, i.e. the effect is undone if applied a second time.
 PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-control
       (let ((mode-line-keyboard-top-level-control nil)
-            (mode-line-keyboard-add-control t))
+            (mode-line-keyboard--add-control t))
         (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
-          (vector (if mode-line-keyboard-add-control
+          (vector (if mode-line-keyboard--add-control
                       (mode-line-keyboard-apply-modifier key 'control)
                     key))))
-    (setq mode-line-keyboard-add-control (not mode-line-keyboard-add-control))
+    (setq mode-line-keyboard--add-control (not mode-line-keyboard--add-control))
     (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
@@ -679,12 +721,6 @@ This is bound to nil inside the the first call to the function,
 to change the behaviour of recursive invocations.")
 
 
-(defvar mode-line-keyboard-add-super nil
-  "When Non-nil `mode-line-keyboard-apply-super-modifier' add modifier.
-
-This is used to make the function behave like a toggle.")
-
-
 (defun mode-line-keyboard-apply-super-modifier (prompt)
   "Add the super modifier to the following event.
 
@@ -693,12 +729,12 @@ Act as a toggle, i.e. the effect is undone if applied a second time.
 PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-super
       (let ((mode-line-keyboard-top-level-super nil)
-            (mode-line-keyboard-add-super t))
+            (mode-line-keyboard--add-super t))
         (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
-          (vector (if mode-line-keyboard-add-super
+          (vector (if mode-line-keyboard--add-super
                       (mode-line-keyboard-apply-modifier key 'super)
                     key))))
-    (setq mode-line-keyboard-add-super (not mode-line-keyboard-add-super))
+    (setq mode-line-keyboard--add-super (not mode-line-keyboard--add-super))
     (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
@@ -712,12 +748,6 @@ This is bound to nil inside the the first call to the function,
 to change the behaviour of recursive invocations.")
 
 
-(defvar mode-line-keyboard-add-hyper nil
-  "When Non-nil `mode-line-keyboard-apply-hyper-modifier' add modifier.
-
-This is used to make the function behave like a toggle.")
-
-
 (defun mode-line-keyboard-apply-hyper-modifier (prompt)
   "Add the hyper modifier to the following event.
 
@@ -726,12 +756,12 @@ Act as a toggle, i.e. the effect is undone if applied a second time.
 PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-hyper
       (let ((mode-line-keyboard-top-level-hyper nil)
-            (mode-line-keyboard-add-hyper t))
+            (mode-line-keyboard--add-hyper t))
         (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
-          (vector (if mode-line-keyboard-add-hyper
+          (vector (if mode-line-keyboard--add-hyper
                       (mode-line-keyboard-apply-modifier key 'hyper)
                     key))))
-    (setq mode-line-keyboard-add-hyper (not mode-line-keyboard-add-hyper))
+    (setq mode-line-keyboard--add-hyper (not mode-line-keyboard--add-hyper))
     (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
@@ -745,12 +775,6 @@ This is bound to nil inside the the first call to the function,
 to change the behaviour of recursive invocations.")
 
 
-(defvar mode-line-keyboard-add-shift nil
-  "When Non-nil `mode-line-keyboard-apply-shift-modifier' add modifier.
-
-This is used to make the function behave like a toggle.")
-
-
 (defun mode-line-keyboard-apply-shift-modifier (prompt)
   "Add the shift modifier to the following event.
 
@@ -759,12 +783,12 @@ Act as a toggle, i.e. the effect is undone if applied a second time.
 PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-shift
       (let ((mode-line-keyboard-top-level-shift nil)
-            (mode-line-keyboard-add-shift t))
+            (mode-line-keyboard--add-shift t))
         (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
-          (vector (if mode-line-keyboard-add-shift
+          (vector (if mode-line-keyboard--add-shift
                       (mode-line-keyboard-apply-modifier key 'shift)
                     key))))
-    (setq mode-line-keyboard-add-shift (not mode-line-keyboard-add-shift))
+    (setq mode-line-keyboard--add-shift (not mode-line-keyboard--add-shift))
     (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
@@ -778,12 +802,6 @@ This is bound to nil inside the the first call to the function,
 to change the behaviour of recursive invocations.")
 
 
-(defvar mode-line-keyboard-add-meta nil
-  "When Non-nil `mode-line-keyboard-apply-meta-modifier' add modifier.
-
-This is used to make the function behave like a toggle.")
-
-
 (defun mode-line-keyboard-apply-meta-modifier (prompt)
   "Add the meta modifier to the following event.
 
@@ -792,12 +810,12 @@ Act as a toggle, i.e. the effect is undone if applied a second time.
 PROMPT is passed to `read-key'."
   (if mode-line-keyboard-top-level-meta
       (let ((mode-line-keyboard-top-level-meta nil)
-            (mode-line-keyboard-add-meta t))
+            (mode-line-keyboard--add-meta t))
         (let ((key (mode-line-keyboard-read-key-maybe-ignore-click prompt)))
-          (vector (if mode-line-keyboard-add-meta
+          (vector (if mode-line-keyboard--add-meta
                       (mode-line-keyboard-apply-modifier key 'meta)
                     key))))
-    (setq mode-line-keyboard-add-meta (not mode-line-keyboard-add-meta))
+    (setq mode-line-keyboard--add-meta (not mode-line-keyboard--add-meta))
     (vector (mode-line-keyboard-read-key-maybe-ignore-click prompt))))
 
 
@@ -864,17 +882,17 @@ EVENT is an event.  If EVENT is nil, `last-input-event' is used."
     (:end      ([end]   "END"))
     (:pgup     ([prior] "PGUP"))
     (:pgdn     ([next]  "PGDN"))
-    (:alt      (:toggle mode-line-keyboard-add-alt
+    (:alt      (:toggle mode-line-keyboard--add-alt
                         mode-line-keyboard-apply-alt-modifier      "ALT"))
-    (:super    (:toggle mode-line-keyboard-add-super
+    (:super    (:toggle mode-line-keyboard--add-super
                         mode-line-keyboard-apply-super-modifier    "SUPR"))
-    (:hyper    (:toggle mode-line-keyboard-add-hyper
+    (:hyper    (:toggle mode-line-keyboard--add-hyper
                         mode-line-keyboard-apply-hyper-modifier    "HYPR"))
-    (:shift    (:toggle mode-line-keyboard-add-shift
+    (:shift    (:toggle mode-line-keyboard--add-shift
                         mode-line-keyboard-apply-shift-modifier    "SHFT"))
-    (:control  (:toggle mode-line-keyboard-add-control
+    (:control  (:toggle mode-line-keyboard--add-control
                         mode-line-keyboard-apply-control-modifier  "CTRL"))
-    (:meta     (:toggle mode-line-keyboard-add-meta
+    (:meta     (:toggle mode-line-keyboard--add-meta
                         mode-line-keyboard-apply-meta-modifier     "META"))
     (:letters  (:range ?a ?z))
     (:digits   (:shift ?1 ?!) (:shift ?2 ?@) (:shift ?3 ?#) (:shift ?4 ?$)
@@ -921,8 +939,8 @@ See `mode-line-keyboard-mode-line-content' for details."
 
 
 (defcustom mode-line-keyboard-mode-line-content
-  '((:ml     :letters)
-    (:soh-ml :arrows :escape :home :end :pgup :pgdn))
+  '((:ml :letters)
+    (:ml :arrows :escape :home :end :pgup :pgdn :hide))
   "A list of entries, each representing a keyboard line in the mode line.
 
 Each entry is a list, which can contain the following:
@@ -986,13 +1004,13 @@ vector).  LABEL is the text.  PROPS is a list of additional properties.
 
 LABEL is typically in lower case.  If it can be converted to
 upper case, the result is on the form
-`(mode-line-keyboard-add-shift UPCASE-ENTRY LOWCASE-ENTRY)'."
+`(mode-line-keyboard--add-shift UPCASE-ENTRY LOWCASE-ENTRY)'."
   (let ((up-label (and (stringp label)
                        (upcase label))))
     (if (or (not up-label)
             (string-equal label up-label))
         (mode-line-keyboard-format-one-entry action label props)
-      `(mode-line-keyboard-add-shift
+      `(mode-line-keyboard--add-shift
         ,(mode-line-keyboard-format-one-entry action up-label props)
         ,(mode-line-keyboard-format-one-entry action label props)))))
 
@@ -1023,7 +1041,7 @@ upper case, the result is on the form
             ((and (listp item)
                   (eq (nth 0 item) :shift))
              (push
-              `(mode-line-keyboard-add-shift
+              `(mode-line-keyboard--add-shift
                 ,(mode-line-keyboard-format-one-entry
                   (nth 2 item)
                   (concat (list (nth 2 item))))
@@ -1092,11 +1110,14 @@ upper case, the result is on the form
 ;; --------------------
 ;; Step line
 
-(defun mode-line-keyboard-step-mode-line (prompt)
+(defun mode-line-keyboard-step-mode-line (prompt &optional event)
   "Step to the next Mode Line Keyboard mode line variant.
 
 PROMPT is the prompt of the original key event, it is passed to
-the next call to `read-key'."
+the next call to `read-key'.  EVENT if the key event, when nil
+`last-input-event' is used."
+  (unless event
+    (setq event last-input-event))
   (let* ((position (nth 1 event))
          (win (posn-window position)))
     (with-current-buffer (window-buffer win)
@@ -1108,11 +1129,14 @@ the next call to `read-key'."
   (vector (mode-line-keyboard-read-key-ignore-mouse-movement prompt)))
 
 
-(defun mode-line-keyboard-step-header-line (prompt)
+(defun mode-line-keyboard-step-header-line (prompt &optional event)
   "Step to the next Mode Line Keyboard header line variant.
 
 PROMPT is the prompt of the original key event, it is passed to
-the next call to `read-key'."
+the next call to `read-key'.  EVENT if the key event, when nil
+`last-input-event' is used."
+  (unless event
+    (setq event last-input-event))
   (let* ((position (nth 1 event))
          (win (posn-window position)))
     (with-current-buffer (window-buffer win)
@@ -1237,9 +1261,6 @@ The adjustment is performed ADJUSTMENT lines."
 
 (define-minor-mode mode-line-keyboard-visible-mode
   "Minor mode that turns the mode line into a keyboard."
-  nil
-  nil
-  nil
   :group mode-line-keyboard-mode
   :keymap mode-line-keyboard-visible-map
   (if mode-line-keyboard-visible-mode
@@ -1315,21 +1336,20 @@ the next call to `read-key'."
 ;;;###autoload
 (define-minor-mode mode-line-keyboard-mode
   "Minor mode that turns the mode line into a keyboard."
-  nil
-  nil
-  nil
+  :lighter nil				; Must have at least one keyword.
   (if mode-line-keyboard-mode
       ;; Enable, or keep the mode on.
       (progn
         (mode-line-keyboard-visible-mode -1)
-        ;; Note: `add-to-list' is not recommended to be used from
-        ;; lisp, and I don't want to use `cl-pushnew' and I don't want
-        ;; to bring in a Common Lisp compatibility package for this.
+	(unless (listp mode-line-format)
+	  (setq mode-line-format (list mode-line-format)))
         (unless (memq 'mode-line-keyboard-mode-show-keyboard
                       mode-line-format)
           (push 'mode-line-keyboard-mode-show-keyboard
                 mode-line-format)
-          ;; Seems to be needed, why I don't know.
+          ;; In a mode line format list, it must start with a string
+          ;; or list for all elements to be included. (When it starts
+          ;; with a symbol, it is seen as an if-then-else construct.)
           (push "" mode-line-format))
 
         (unless (display-graphic-p)
