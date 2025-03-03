@@ -55,9 +55,9 @@
 ;; Type, say, C-x on the real keyboard followed by, say "o", on the
 ;; mode line keyboard should select the other window.
 ;;
-;; Clicking the `1/2' label should step to the next keyboard line.  On
-;; the mode line, clicking the last line should return the mode line
-;; to it's original state (but with the KB> present).
+;; Clicking the `1/2' label should step to the next keyboard line.
+;; When clicking on the last line, `2/2', the mode line should return
+;; to the first.
 ;;
 ;; Evaluating `(read-key)' and then clicking on the mode line keyboard
 ;; should return the corresponding ASCII code. (E.g. `97' for `a'.)

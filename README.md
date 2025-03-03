@@ -1,7 +1,7 @@
 # mode-line-keyboard - Keyboard in mode line for touch screens
 
 *Author:* Anders Lindgren<br>
-*Version:* 0.0.2<br>
+*Version:* 0.0.3<br>
 *URL:* [https://github.com/Lindydancer/mode-line-keyboard](https://github.com/Lindydancer/mode-line-keyboard)<br>
 
 This package turns the header and mode lines into a keyboard.  This
@@ -9,10 +9,6 @@ is mainly intended to be used in environments without a normal
 keyboard, such as touch devices.  Concretely, the Android
 application "Termux" provides a Linux terminal environment that
 includes a terminal version of Emacs.
-
-NOTE: This is an "early release" intended to be tested by a small
-audience.  Please, DO NOT add it to package archives like Melpa --
-I will do that once this package has gotten some mileage.
 
 ## Activate
 
